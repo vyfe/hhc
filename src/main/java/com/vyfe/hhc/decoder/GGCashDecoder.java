@@ -42,9 +42,11 @@ public class GGCashDecoder {
      * 解析为一手牌:GG cash
      * @param descString
      * @param formerChip 前一手的余额，用于计算提现/买入
+     * @param sessionId
      * @return
      */
-    public GGHandMsg parseCashHand(List<String> descString, BigDecimal formerChip) {
+    public GGHandMsg parseCashHand(List<String> descString, BigDecimal formerChip,
+                                   Long sessionId) {
         var hand = new GGHandMsg();
         if (CollectionUtils.isEmpty(descString)) {
             return hand;
@@ -56,12 +58,9 @@ public class GGCashDecoder {
             hand.setHandTime(LocalDateTime.parse(descString.get(i).split("-")[1].trim(),
                     DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
             String sbBb = descString.get(i).split("[)(]")[1];
-            // todo 两个字段有冗余，看能不能汇总到sesisonMsg中
             hand.setBbSize(RegexUtil.cashStringToDecimal(sbBb.split("/")[1]));
             hand.setSbSize(RegexUtil.cashStringToDecimal(sbBb.split("/")[0]));
-            // 临时将sessionId设置为1
-            hand.setSessionId("1");
-            hand.setGameType(GameType.CASHRUSH);
+            hand.setSessionId(sessionId);
             // 第二行: button位,
             i++;
             int buttonPos = Integer.parseInt(descString.get(i).split("#")[1].split(" ")[0]);

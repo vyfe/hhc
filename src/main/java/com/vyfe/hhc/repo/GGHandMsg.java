@@ -49,7 +49,7 @@ public class GGHandMsg implements Serializable {
     /**
      * 关联到的sessionId
      */
-    private String sessionId;
+    private Long sessionId;
     /**
      * 己方手牌
      */
@@ -74,10 +74,6 @@ public class GGHandMsg implements Serializable {
      * 开始时间点
      */
     private LocalDateTime handTime;
-    /**
-     * 游戏类型
-     */
-    private GameType gameType;
     /**
      * 大盲大小，MTT按chips，CASH按cent(1$=100)
      */

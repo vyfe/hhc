@@ -11,6 +11,6 @@ import org.springframework.stereotype.Repository;
  * Description:
  */
 @Repository
-public interface GGHandMsgRepo extends JpaRepository<GGHandMsg, String> {
+public interface GGHandMsgRepo extends JpaRepository<GGHandMsg, Long> {
 
 }

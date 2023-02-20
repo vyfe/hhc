@@ -17,7 +17,7 @@ public class RegexUtil {
      */
     public static BigDecimal cashStringToDecimal(String cashStr) {
         return BigDecimal.valueOf(Double.parseDouble(
-                cashStr.substring(1)));
+                cashStr.split("\\$")[1]));
     }
     
     /**

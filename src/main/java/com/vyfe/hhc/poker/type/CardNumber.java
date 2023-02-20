@@ -2,6 +2,7 @@ package com.vyfe.hhc.poker.type;
 
 import java.util.stream.Stream;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
@@ -11,6 +12,7 @@ import lombok.Getter;
  * Date: 2023/2/15
  * Description:
  */
+@AllArgsConstructor
 public enum CardNumber {
     ACE(1, "A", 13),
     TWO(2, "2", 1),
@@ -26,12 +28,6 @@ public enum CardNumber {
     QUEEN(12, "Q", 11),
     KING(13, "K", 12),
     ;
-    
-    CardNumber(int number, String desc, int order) {
-        this.number = number;
-        this.desc = desc;
-        this.order = order;
-    }
     
     @Getter
     private int number;
