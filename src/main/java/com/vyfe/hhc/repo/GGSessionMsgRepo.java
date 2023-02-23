@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface GGSessionMsgRepo extends JpaRepository<GGSessionMsg, Long> {
     List<GGSessionMsg> findByUidAndGameTypeAndFileMd5(Integer uid, GameType type, String md5);
+    
+    List<GGSessionMsg> findByUidAndGameTypeAndTournamentId(Integer uid, GameType type, Long tid);
 }

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -21,6 +22,7 @@ import com.vyfe.hhc.repo.vo.ActionLinesVo;
 import com.vyfe.hhc.repo.vo.ActionVo;
 import com.vyfe.hhc.repo.vo.BoardsVo;
 import com.vyfe.hhc.system.util.JsonUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,16 +39,32 @@ import org.springframework.util.CollectionUtils;
 @Component
 public class GGCashDecoder {
     private static final Logger LOGGER = LoggerFactory.getLogger(GGCashDecoder.class);
+    /**
+     * 每个action的投入金额可能有一个：投入金额 或两个：递补金额和当前轮总金额
+     * 不同类型action，计算当前轮总投入金额的方式不一样
+     */
+    private static final int CHIP_TOTAL_POS = 3;
+    private static final int CHIP_APPEND_POS = 1;
     
+    public GGHandMsg parseNoRebuyMTTHand(List<String> descString, Long sessionId) {
+        return parseHandBase(descString, false, BigDecimal.ZERO, sessionId, RegexUtil::chipStringToDecimal);
+    }
+    
+    public GGHandMsg parseCashHand(List<String> descString, BigDecimal formerChip,
+                                   Long sessionId) {
+        return parseHandBase(descString, true, formerChip, sessionId, RegexUtil::cashStringToDecimal);
+    }
     /**
      * 解析为一手牌:GG cash
      * @param descString
+     * @param hasRebuy 是否有rebuy，否则不计算重买入额
      * @param formerChip 前一手的余额，用于计算提现/买入
      * @param sessionId
+     * @param parseChipFunc 解析筹码(现金、代币)函数
      * @return
      */
-    public GGHandMsg parseCashHand(List<String> descString, BigDecimal formerChip,
-                                   Long sessionId) {
+    public GGHandMsg parseHandBase(List<String> descString, boolean hasRebuy, BigDecimal formerChip,
+                                   Long sessionId, Function<String, BigDecimal> parseChipFunc) {
         var hand = new GGHandMsg();
         if (CollectionUtils.isEmpty(descString)) {
             return hand;
@@ -55,11 +73,10 @@ public class GGCashDecoder {
         try {
             // id、大小盲、时间
             hand.setHandId(descString.get(i).split("#")[1].split(":")[0]);
-            hand.setHandTime(LocalDateTime.parse(descString.get(i).split("-")[1].trim(),
-                    DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")));
+            hand.setHandTime(RegexUtil.ggTimeToLocalDateTime(RegexUtil.lastSplitPiece(descString.get(i), "-")));
             String sbBb = descString.get(i).split("[)(]")[1];
-            hand.setBbSize(RegexUtil.cashStringToDecimal(sbBb.split("/")[1]));
-            hand.setSbSize(RegexUtil.cashStringToDecimal(sbBb.split("/")[0]));
+            hand.setBbSize(parseChipFunc.apply(sbBb.split("/")[1]));
+            hand.setSbSize(parseChipFunc.apply(sbBb.split("/")[0]));
             hand.setSessionId(sessionId);
             // 第二行: button位,
             i++;
@@ -67,29 +84,62 @@ public class GGCashDecoder {
             i++;
             // 第3~n行: Seat 开头，有几行就是几人; Hero为自己，括号内$符号后为现金量
             Map<String, BigDecimal> uidAndChip = new HashMap<>();
-            var heroPos = 0;
+            // 可能出现没坐满的情况，没法通过座位编号确定相对位置
+            var heroRealPos = 0;
+            var buttonRealPos = 0;
+            var realSeat = 1;
             for (; descString.get(i).split(" ")[0].equals("Seat"); i++) {
                 var uid = descString.get(i).split(" ")[2].toLowerCase();
-                uidAndChip.put(uid, RegexUtil.cashStringToDecimal(
+                uidAndChip.put(uid, parseChipFunc.apply(
                         descString.get(i).split("\\(")[1].split(" ")[0]));
-                if (uid.equalsIgnoreCase(HoldemConstant.PLAYER_WORD_GG)) {
-                    var posStr = descString.get(i).split(" ")[1];
-                    heroPos = Integer.parseInt(posStr.substring(0, posStr.length() - 1));
+                var seatNo = Integer.parseInt(descString.get(i).split(" ")[1]
+                        .substring(0, descString.get(i).split(" ")[1].length() - 1));
+                if (seatNo == buttonPos) {
+                    buttonRealPos = realSeat;
                 }
+                if (uid.equalsIgnoreCase(HoldemConstant.PLAYER_WORD_GG)) {
+                    heroRealPos = realSeat;
+                }
+                realSeat++;
             }
             hand.setChips(uidAndChip.get(HoldemConstant.PLAYER_WORD_GG));
             // 局间筹码变化(发生了买入/提现)
-            hand.setChipsSupply(hand.getChips().subtract(formerChip));
+            hand.setChipsSupply(hasRebuy ? hand.getChips().subtract(formerChip) : BigDecimal.ZERO);
             // 计算Hero相对按钮的位置
             hand.setChairs(uidAndChip.size());
-            if (buttonPos < heroPos ) {
-                hand.setPosition(heroPos - (buttonPos + 1));
+            if (buttonRealPos < heroRealPos ) {
+                hand.setPosition(heroRealPos - (buttonRealPos + 1));
             } else {
-                hand.setPosition(hand.getChairs() + (buttonPos - 1) - heroPos);
+                hand.setPosition(hand.getChairs() + (buttonRealPos - 1) - heroRealPos);
             }
-            // n+1、n+2：小盲、大盲注,先忽略
-            i = i + 2;
-            LOGGER.info("ignoring sb and bb post, continue.. line num:{}", i);
+            // ante(可选)
+            // 文本中没有明确标明ante额度，只能取max了（不可能出现所有人chip数比ante小吧）
+            BigDecimal antePutIn = BigDecimal.ZERO;
+            BigDecimal anteSize = BigDecimal.ZERO;
+            for (; descString.get(i).contains("ante"); i++) {
+                BigDecimal anteNow = parseChipFunc.apply(
+                        RegexUtil.lastSplitPiece(descString.get(i), StringUtils.SPACE));
+                anteSize = anteSize.compareTo(anteNow) > 0 ? anteSize : anteNow;
+                if (descString.get(i).split(":")[0].equalsIgnoreCase(HoldemConstant.PLAYER_WORD_GG)) {
+                    antePutIn = anteNow;
+                }
+            }
+            hand.setAnte(anteSize);
+            Map<String, BigDecimal> uidPotMap = new HashMap<>();
+            // 小盲、大盲注,放入uidPotMap，后面有用
+            for (; descString.get(i).contains("blind"); i++) {
+                String uid = descString.get(i).split(":")[0].trim().toLowerCase();
+                // 小盲, 可能有剩余筹码小于的情况 ，因此不能等于sbSize
+                if (descString.get(i).contains("small")) {
+                    uidPotMap.put(uid, parseChipFunc.apply(
+                            RegexUtil.lastSplitPiece(descString.get(i), StringUtils.SPACE)));
+                }
+                // 大盲，同上
+                if (descString.get(i).contains("big")) {
+                    uidPotMap.put(uid, parseChipFunc.apply(
+                            RegexUtil.lastSplitPiece(descString.get(i), StringUtils.SPACE)));
+                }
+            }
             // 分隔线跳过
             i = i + 1;
             LOGGER.info("jumping hole card seperate, continue.. line num:{}", i);
@@ -114,13 +164,13 @@ public class GGCashDecoder {
                 actionStr.add(descString.get(i));
                 // hero 盘中赢得pot时，归还多余的chips到chipAfter
                 if (descString.get(i).contains("returned") &&
-                        descString.get(i).split(" ")[descString.get(i).split(" ").length - 1]
+                        RegexUtil.lastSplitPiece(descString.get(i), StringUtils.SPACE)
                                 .equalsIgnoreCase(HoldemConstant.PLAYER_WORD_GG)) {
-                    uncalledChips = RegexUtil.cashStringToDecimal(
+                    uncalledChips = parseChipFunc.apply(
                             descString.get(i).split("[(|)]")[1]);
                 }
             }
-            hand.setActionLines(parseGGActionLine(actionStr));
+            hand.setActionLines(parseGGActionLine(actionStr, parseChipFunc, uidPotMap));
             // 是否入池、入池类型判断、投入筹码
             BigDecimal putInPotSize = BigDecimal.ZERO;
             if (hand.getActionLines().getActionLines().containsKey(HoldemConstant.PLAYER_WORD_GG)) {
@@ -153,6 +203,8 @@ public class GGCashDecoder {
             if (hand.getPosition() == 1) {
                 putInPotSize = putInPotSize.add(hand.getBbSize());
             }
+            // ante
+            putInPotSize = putInPotSize.add(antePutIn);
             // 跳过showdown
             i++;
             List<String> potDivideStr = new ArrayList<>();
@@ -165,7 +217,7 @@ public class GGCashDecoder {
             for (String potDivide : potDivideStr) {
                 if (potDivide.split(" ")[0].equalsIgnoreCase(HoldemConstant.PLAYER_WORD_GG)) {
                     winPot = true;
-                    winSize = winSize.add(RegexUtil.cashStringToDecimal(potDivide.split(" ")[2]));
+                    winSize = winSize.add(parseChipFunc.apply(potDivide.split(" ")[2]));
                 }
             }
             hand.setWinPot(winPot);
@@ -186,7 +238,7 @@ public class GGCashDecoder {
                     } else {
                         // 2~n次发牌，若少于5需要组合第1次发牌牌面
                         if (boardHands.length < 5) {
-                            List<Card> board1 = boardHandsObj.getBoard1();
+                            List<Card> board1 = new ArrayList<>(boardHandsObj.getBoard1());
                             for (int j = 5 - boardHands.length, k = 0; j <= 4; j++, k++) {
                                 board1.set(j, Card.parseUsualDesc(boardHands[k]));
                             }
@@ -215,9 +267,12 @@ public class GGCashDecoder {
     /**
      * 解析当局所有的行动线
      * @param actionStrs 行动相关的String
+     * @param parseChipFunc
+     * @param uidPotMap 本圈当前uid->已投入chip
      * @return actionLines
      */
-    private ActionLinesVo parseGGActionLine(List<String> actionStrs) {
+    private ActionLinesVo parseGGActionLine(List<String> actionStrs, Function<String, BigDecimal> parseChipFunc,
+                                            Map<String, BigDecimal> uidPotMap) {
         Map<String, ActionLine> actionMap = new HashMap<>();
         // 街数,本街raise次数
         int streets = 0;
@@ -229,6 +284,7 @@ public class GGCashDecoder {
                 if (HoldemConstant.GG_STREET_SEPERATE_MAP.containsKey(streetTag)) {
                     streets = HoldemConstant.GG_STREET_SEPERATE_MAP.get(streetTag);
                     raiseTime = 0;
+                    uidPotMap.clear();
                 } else {
                     LOGGER.error("error seperator: {}", streetTag);
                     break;
@@ -253,8 +309,8 @@ public class GGCashDecoder {
                                 v = new ActionLine();
                                 v.setPreFlop(new ArrayList<>());
                             }
-                            v.getPreFlop().add(parseGGAction(actionStr,
-                                    finalRaiseTimePre, finalStreetsPre));
+                            v.getPreFlop().add(parseGGAction(uid, actionStr,
+                                    finalRaiseTimePre, finalStreetsPre, parseChipFunc, uidPotMap));
                             return v;
                         });
                         if (ActionType.raiseActions().contains(actPre.getPreFlop()
@@ -269,8 +325,8 @@ public class GGCashDecoder {
                             if (v.getFlop() == null) {
                                 v.setFlop(new ArrayList<>());
                             }
-                            v.getFlop().add(parseGGAction(actionStr,
-                                    finalRaiseTimeFlop, finalStreetsFlop));
+                            v.getFlop().add(parseGGAction(uid, actionStr,
+                                    finalRaiseTimeFlop, finalStreetsFlop, parseChipFunc, uidPotMap));
                             return v;
                         });
                         if (actFlop != null && ActionType.raiseActions().contains(actFlop.getFlop()
@@ -285,8 +341,8 @@ public class GGCashDecoder {
                             if (v.getTurn() == null) {
                                 v.setTurn(new ArrayList<>());
                             }
-                            v.getTurn().add(parseGGAction(actionStr,
-                                    finalRaiseTimeTurn, finalStreetsTurn));
+                            v.getTurn().add(parseGGAction(uid, actionStr,
+                                    finalRaiseTimeTurn, finalStreetsTurn, parseChipFunc, uidPotMap));
                             return v;
                         });
                         if (actTurn != null && ActionType.raiseActions().contains(actTurn.getTurn()
@@ -301,8 +357,8 @@ public class GGCashDecoder {
                             if (v.getRiver() == null) {
                                 v.setRiver(new ArrayList<>());
                             }
-                            v.getRiver().add(parseGGAction(actionStr,
-                                    finalRaiseTimeRiver, finalStreetsRiver));
+                            v.getRiver().add(parseGGAction(uid, actionStr,
+                                    finalRaiseTimeRiver, finalStreetsRiver, parseChipFunc, uidPotMap));
                             return v;
                         });
                         if (actRiver != null && ActionType.raiseActions().contains(actRiver.getRiver()
@@ -319,15 +375,20 @@ public class GGCashDecoder {
     
     /**
      * 解析单行行动
+     * @param uid uid
      * @param actionStr 行动文本
      * @param raiseTimes 本轮该行动前的raise次数，用于判定具体行为
      * @param streetCode 当前属于哪条街
+     * @param parseChipFunc
+     * @param uidPotMap 本轮的uid->已投入pot
      * @return
      */
-    private ActionVo parseGGAction(String actionStr, int raiseTimes, int streetCode) {
-        LOGGER.debug("action Str:{}", actionStr);
+    private ActionVo parseGGAction(String uid, String actionStr, int raiseTimes, int streetCode,
+                                   Function<String, BigDecimal> parseChipFunc,
+                                   Map<String, BigDecimal> uidPotMap) {
+        LOGGER.debug("uid:{}, action Str:{}", uid, actionStr);
         ActionType type;
-        BigDecimal cashInPot = BigDecimal.ZERO;
+        int chipPos = 0;
         String[] tokenArr = actionStr.split(" ");
         if (actionStr.equalsIgnoreCase(HoldemConstant.FOLD_ACTION_GG)) {
             // fold
@@ -340,36 +401,54 @@ public class GGCashDecoder {
             LOGGER.info("showing: {}, no matter", actionStr);
             type = ActionType.SHOW;
         } else {
-            // 其余操作必须投入，此金额为当次行动投入的金额
-            cashInPot = RegexUtil.cashStringToDecimal(tokenArr[1]);
+            // 其余操作必须投入，cashInPotTotal为本轮行动投入的总金额
             if (tokenArr[0].equalsIgnoreCase(HoldemConstant.CALL_ACTION_GG)) {
                 // 首圈且无人raise时limp, 其余为call
                 type = (streetCode <= HoldemConstant.STREET_PREFLOP && raiseTimes <= 0) ?
                         ActionType.LIMP : ActionType.CALL;
-            } else if (tokenArr[tokenArr.length - 1].equalsIgnoreCase(HoldemConstant.ALLIN_ACTION_GG)) {
-                // all-in
-                type = ActionType.ALLIN;
+                chipPos = CHIP_APPEND_POS;
             } else if (tokenArr[0].equalsIgnoreCase(HoldemConstant.BET_ACTION_GG)) {
-                // open or bet
-                type = (streetCode <= HoldemConstant.STREET_PREFLOP) ?
-                        ActionType.OPEN : ActionType.BET;
+                // bet
+                type = ActionType.BET;
+                chipPos = CHIP_APPEND_POS;
             } else if (tokenArr[0].equalsIgnoreCase(HoldemConstant.RAISE_ACTION_GG)) {
-                // raise
+                // open or raise
                 type = switch (raiseTimes) {
-                    case 0 -> ActionType.RAISE;
+                    case 0 -> streetCode <= HoldemConstant.STREET_PREFLOP ? ActionType.OPEN : ActionType.RAISE;
                     case 1 -> ActionType.RAISE2;
                     default -> ActionType.RAISE3P;
                 };
-                // 若翻前圈的raise前无其他raise，取后者；否则取前者
-                if (streetCode <= HoldemConstant.STREET_PREFLOP && raiseTimes <= 0) {
-                    cashInPot = RegexUtil.cashStringToDecimal(tokenArr[tokenArr.length - 1]);
-                }
+                chipPos = CHIP_TOTAL_POS;
             } else {
                 // 未匹配上的 以外
                 LOGGER.error("err while parsing action: {}", actionStr);
                 type = ActionType.CHECK;
             }
+            // all-in action特判
+            if (tokenArr[tokenArr.length - 1].equalsIgnoreCase(HoldemConstant.ALLIN_ACTION_GG)) {
+                // all-in
+                type = ActionType.ALLIN;
+            }
         }
-        return new ActionVo(type, cashInPot);
+        BigDecimal cashInPotTotal = BigDecimal.ZERO, cashInPotAction = BigDecimal.ZERO;
+        // chipPos为1时，该金额是action；为3时，该金额是total；
+        switch (chipPos) {
+            case CHIP_TOTAL_POS:
+                cashInPotTotal = parseChipFunc.apply(tokenArr[CHIP_TOTAL_POS]);
+                if (uidPotMap.containsKey(uid)) {
+                    cashInPotAction = parseChipFunc.apply(tokenArr[CHIP_TOTAL_POS]).subtract(uidPotMap.get(uid));
+                } else {
+                    cashInPotAction = parseChipFunc.apply(tokenArr[CHIP_TOTAL_POS]);
+                }
+                break;
+            case CHIP_APPEND_POS:
+                cashInPotAction = parseChipFunc.apply(tokenArr[CHIP_APPEND_POS]);
+                cashInPotTotal = uidPotMap.containsKey(uid) ? uidPotMap.get(uid).add(cashInPotAction) :
+                        cashInPotAction;
+                break;
+            default:
+        }
+        uidPotMap.put(uid, cashInPotTotal);
+        return new ActionVo(type, cashInPotAction);
     }
 }

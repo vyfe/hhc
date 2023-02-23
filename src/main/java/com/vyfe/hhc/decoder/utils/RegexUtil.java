@@ -1,6 +1,10 @@
 package com.vyfe.hhc.decoder.utils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * RegexUtil类.
@@ -11,7 +15,7 @@ import java.math.BigDecimal;
  */
 public class RegexUtil {
     /**
-     * 转换类似"$3.04"到BigDecimal
+     * 转换类似"[CT]?$3.04"到BigDecimal
      * @param cashStr
      * @return
      */
@@ -28,4 +32,13 @@ public class RegexUtil {
     public static BigDecimal chipStringToDecimal(String chipStr) {
         return BigDecimal.valueOf(Integer.parseInt(chipStr.replace(",", "")));
     }
+    
+    public static LocalDateTime ggTimeToLocalDateTime(String timeStr) {
+        return LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
+    }
+    
+    public static String lastSplitPiece(String strToSplit, String reg) {
+        return strToSplit.split(reg)[strToSplit.split(reg).length - 1].trim();
+    }
+    
 }

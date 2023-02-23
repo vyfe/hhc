@@ -83,6 +83,10 @@ public class GGHandMsg implements Serializable {
      */
     private BigDecimal sbSize = BigDecimal.ZERO;
     /**
+     * 底注大小
+     */
+    private BigDecimal ante = BigDecimal.ZERO;
+    /**
      * 当前剩余筹码
      */
     private BigDecimal chips = BigDecimal.ZERO;

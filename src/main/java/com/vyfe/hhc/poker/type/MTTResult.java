@@ -1,5 +1,7 @@
 package com.vyfe.hhc.poker.type;
 
+import java.math.BigDecimal;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
@@ -24,5 +26,21 @@ public enum MTTResult {
     
     @Getter
     private String desc;
+    
+    public static MTTResult getResult(Integer rank, Integer peopleAttend, BigDecimal cash) {
+        if (rank == 1) {
+            return CHAMPION;
+        } else if (rank < 10) {
+            return FT;
+        } else if (!cash.equals(BigDecimal.ZERO)) {
+            return CASH;
+        } else if ((double) rank / (double)peopleAttend <= 0.25D) {
+            return P25;
+        } else if ((double) rank / (double)peopleAttend <= 0.5D) {
+            return P50;
+        } else {
+            return OUT_OF_50;
+        }
+    }
     
 }

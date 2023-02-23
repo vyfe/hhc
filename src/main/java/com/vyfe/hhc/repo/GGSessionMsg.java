@@ -68,9 +68,17 @@ public class GGSessionMsg {
      */
     private Integer peopleAttend;
     /**
+     * 锦标赛名字
+     */
+    private String tournamentName;
+    /**
      * 排名
      */
     private Integer rank;
+    /**
+     * 锦标赛ID
+     */
+    private Long tournamentId;
     /**
      * 锦标赛结果
      */

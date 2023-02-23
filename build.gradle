@@ -24,7 +24,7 @@ mainClassName = "com.vyfe.hhc.HhcApplication"
 sourceSets {
 	main {
 		resources {
-			srcDirs = ["src/main/resources", "src/main/resources/base", "src/main/resources/${profile}"]
+			srcDirs = ["src/main/resources/base", "src/main/resources/${profile}"]
 		}
 	}
 }
@@ -43,9 +43,13 @@ dependencies {
 	implementation 'com.google.guava:guava:31.1-jre'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation "com.fasterxml.jackson.core:jackson-databind:2.11.2"
+	// mapstruct
+	implementation 'org.mapstruct:mapstruct:1.4.2.Final'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.4.2.Final'
 	// lombok
 	compileOnly 'org.projectlombok:lombok:1.18.22'
 	annotationProcessor 'org.projectlombok:lombok:1.18.22'
+	annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 	// aspectj
 	implementation "org.aspectj:aspectjrt:${aspectjVersion}"
 	implementation "org.aspectj:aspectjweaver:${aspectjVersion}"

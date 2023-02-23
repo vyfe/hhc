@@ -32,6 +32,7 @@ public class ExceptionHandler {
 //            if (OpsBaseResponse.class.isAssignableFrom(returnType)) {
 //                return OpsBaseResponse.withSuccessData(ReadableMsgResponse.withErrorAndMsg(e.getMessage()));
 //            }
+            LOGGER.error("meeting hhcException, msg:{}", e.getMessage());
             throw e;
         } catch (Throwable throwable) {
 //            if (OpsBaseResponse.class.isAssignableFrom(returnType)) {

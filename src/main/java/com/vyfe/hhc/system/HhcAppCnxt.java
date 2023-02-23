@@ -1,4 +1,4 @@
-package com.vyfe.hhc;
+package com.vyfe.hhc.system;
 
 import javax.sql.DataSource;
 
@@ -15,13 +15,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.Database;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -32,8 +35,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Description:
  */
 @Configuration
-@ComponentScan(basePackages = {"com.vyfe.hhc"})
+@ComponentScan(basePackages = {"com.vyfe.hhc"},
+        excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com.vyfe.hhc.script..*"))
 @PropertySource({"classpath:hhc.properties", "classpath:database.properties"})
+@EnableJpaRepositories(basePackages = {"com.vyfe.hhc.repo"})
+@EnableTransactionManagement
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 public class HhcAppCnxt {
     private Logger logger = LoggerFactory.getLogger(getClass());

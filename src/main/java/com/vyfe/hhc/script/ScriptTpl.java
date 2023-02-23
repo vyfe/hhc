@@ -1,6 +1,6 @@
 package com.vyfe.hhc.script;
 
-import com.vyfe.hhc.HhcAppCnxt;
+import com.vyfe.hhc.system.HhcAppCnxt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -19,7 +19,7 @@ public abstract class ScriptTpl {
     
     public static void execute(String[] args, Class clazz) {
         SpringApplicationBuilder applicationBuilder = new SpringApplicationBuilder();
-        SpringApplication application = applicationBuilder.sources(clazz).sources(HhcAppCnxt.class)
+        SpringApplication application = applicationBuilder.sources(HhcAppCnxt.class).sources(clazz)
                 .web(WebApplicationType.NONE).build();
         int retCode = 0;
         try {

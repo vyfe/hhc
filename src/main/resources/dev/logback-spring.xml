@@ -3,7 +3,7 @@
     <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <charset>utf-8</charset>
-            <pattern>%highlight(%d{yyyy-MM-dd HH:mm:ss.SSS} [%t][%X{logId}] %-5level %logger{50} - %msg%n)</pattern>
+            <pattern>%highlight(%d{yyyy-MM-dd HH:mm:ss.SSS} [%t][%X{logId}] %-5level %logger{20} - %msg%n)</pattern>
         </encoder>
     </appender>
 
