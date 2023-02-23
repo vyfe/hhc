@@ -1,10 +1,8 @@
-package com.vyfe.hhc.decoder.utils;
+package com.vyfe.hhc.parse.utils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * RegexUtil类.

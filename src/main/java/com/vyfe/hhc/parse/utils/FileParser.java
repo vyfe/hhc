@@ -1,4 +1,4 @@
-package com.vyfe.hhc.decoder.utils;
+package com.vyfe.hhc.parse.utils;
 
 import java.io.File;
 import java.util.List;

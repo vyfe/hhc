@@ -26,6 +26,8 @@ public enum ActionType {
     RAISE2,
     RAISE3P,
     ALLIN,
+    // 保险
+    INSURANCE,
     ;
     
     /**

@@ -2,7 +2,6 @@ package com.vyfe.hhc.poker.mapper;
 
 import com.vyfe.hhc.poker.SessionMsg;
 import com.vyfe.hhc.repo.GGSessionMsg;
-import com.vyfe.hhc.repo.GGSessionMsgRepo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;

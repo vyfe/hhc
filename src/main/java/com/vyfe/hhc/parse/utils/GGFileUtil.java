@@ -1,4 +1,4 @@
-package com.vyfe.hhc.decoder.utils;
+package com.vyfe.hhc.parse.utils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.vyfe.hhc.poker.SessionMsg;
-import com.vyfe.hhc.poker.constant.HoldemConstant;
 import com.vyfe.hhc.system.HhcException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;

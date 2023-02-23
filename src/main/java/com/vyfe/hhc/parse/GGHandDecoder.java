@@ -1,8 +1,6 @@
-package com.vyfe.hhc.decoder;
+package com.vyfe.hhc.parse;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,17 +9,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.vyfe.hhc.decoder.utils.RegexUtil;
+import com.vyfe.hhc.parse.utils.RegexUtil;
 import com.vyfe.hhc.poker.ActionLine;
 import com.vyfe.hhc.poker.Card;
-import com.vyfe.hhc.poker.type.GameType;
-import com.vyfe.hhc.repo.GGHandMsg;
 import com.vyfe.hhc.poker.constant.HoldemConstant;
 import com.vyfe.hhc.poker.type.ActionType;
+import com.vyfe.hhc.repo.GGHandMsg;
 import com.vyfe.hhc.repo.vo.ActionLinesVo;
 import com.vyfe.hhc.repo.vo.ActionVo;
 import com.vyfe.hhc.repo.vo.BoardsVo;
-import com.vyfe.hhc.system.util.JsonUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -37,14 +33,16 @@ import org.springframework.util.CollectionUtils;
  * Description: GG战绩解析
  */
 @Component
-public class GGCashDecoder {
-    private static final Logger LOGGER = LoggerFactory.getLogger(GGCashDecoder.class);
+public class GGHandDecoder {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GGHandDecoder.class);
     /**
      * 每个action的投入金额可能有一个：投入金额 或两个：递补金额和当前轮总金额
-     * 不同类型action，计算当前轮总投入金额的方式不一样
+     * 不同类型action，计算当前轮总投入金额的方式不一样，通过空格划分数组的第i个元素取到
      */
     private static final int CHIP_TOTAL_POS = 3;
     private static final int CHIP_APPEND_POS = 1;
+    private static final int CHIP_DEF_POS = 0;
+    private static final int CHIP_INSURANCE_POS = -1;
     
     public GGHandMsg parseNoRebuyMTTHand(List<String> descString, Long sessionId) {
         return parseHandBase(descString, false, BigDecimal.ZERO, sessionId, RegexUtil::chipStringToDecimal);
@@ -125,6 +123,11 @@ public class GGCashDecoder {
                 }
             }
             hand.setAnte(anteSize);
+            // rush局红包，不winpot时跟自己无关，可忽略
+            if (descString.get(i).contains("Drop")) {
+                LOGGER.info("cash drop:{}", descString.get(i));
+                i++;
+            }
             Map<String, BigDecimal> uidPotMap = new HashMap<>();
             // 小盲、大盲注,放入uidPotMap，后面有用
             for (; descString.get(i).contains("blind"); i++) {
@@ -203,12 +206,12 @@ public class GGCashDecoder {
             if (hand.getPosition() == 1) {
                 putInPotSize = putInPotSize.add(hand.getBbSize());
             }
-            // ante
+            // +ante
             putInPotSize = putInPotSize.add(antePutIn);
             // 跳过showdown
             i++;
             List<String> potDivideStr = new ArrayList<>();
-            // showDown到summary之间的collected（目前不做对手分析可忽略）
+            // showDown到summary之间的collected
             for (; !descString.get(i).contains(HoldemConstant.SUMMARY_DEVIDE_WORD_GG); i++) {
                 potDivideStr.add(descString.get(i));
             }
@@ -402,15 +405,18 @@ public class GGCashDecoder {
             type = ActionType.SHOW;
         } else {
             // 其余操作必须投入，cashInPotTotal为本轮行动投入的总金额
+            chipPos = CHIP_APPEND_POS;
             if (tokenArr[0].equalsIgnoreCase(HoldemConstant.CALL_ACTION_GG)) {
                 // 首圈且无人raise时limp, 其余为call
                 type = (streetCode <= HoldemConstant.STREET_PREFLOP && raiseTimes <= 0) ?
                         ActionType.LIMP : ActionType.CALL;
-                chipPos = CHIP_APPEND_POS;
             } else if (tokenArr[0].equalsIgnoreCase(HoldemConstant.BET_ACTION_GG)) {
                 // bet
                 type = ActionType.BET;
-                chipPos = CHIP_APPEND_POS;
+            } else if (tokenArr[0].equalsIgnoreCase(HoldemConstant.INSURANCE_ACTION_GG)) {
+                // 保险
+                type = ActionType.INSURANCE;
+                chipPos = CHIP_INSURANCE_POS;
             } else if (tokenArr[0].equalsIgnoreCase(HoldemConstant.RAISE_ACTION_GG)) {
                 // open or raise
                 type = switch (raiseTimes) {
@@ -423,6 +429,7 @@ public class GGCashDecoder {
                 // 未匹配上的 以外
                 LOGGER.error("err while parsing action: {}", actionStr);
                 type = ActionType.CHECK;
+                chipPos = CHIP_DEF_POS;
             }
             // all-in action特判
             if (tokenArr[tokenArr.length - 1].equalsIgnoreCase(HoldemConstant.ALLIN_ACTION_GG)) {
@@ -446,7 +453,18 @@ public class GGCashDecoder {
                 cashInPotTotal = uidPotMap.containsKey(uid) ? uidPotMap.get(uid).add(cashInPotAction) :
                         cashInPotAction;
                 break;
+            case CHIP_DEF_POS:
+                // 无投入
+                cashInPotTotal = uidPotMap.getOrDefault(uid, cashInPotTotal);
+                break;
+            case CHIP_INSURANCE_POS:
+                // 保险也算在action内，但解析方式不同
+                cashInPotAction = parseChipFunc.apply(actionStr.split("[()]")[1]);
+                cashInPotTotal = uidPotMap.containsKey(uid) ? uidPotMap.get(uid).add(cashInPotAction) :
+                        cashInPotAction;
+                break;
             default:
+            
         }
         uidPotMap.put(uid, cashInPotTotal);
         return new ActionVo(type, cashInPotAction);

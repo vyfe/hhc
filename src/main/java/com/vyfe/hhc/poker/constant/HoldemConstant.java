@@ -59,6 +59,7 @@ public class HoldemConstant {
      * 行动单词
      */
     public static final String CALL_ACTION_GG = "calls";
+    public static final String INSURANCE_ACTION_GG = "pays";
     public static final String RAISE_ACTION_GG = "raises";
     public static final String FOLD_ACTION_GG = "folds";
     public static final String CHECK_ACTION_GG = "checks";

@@ -43,6 +43,7 @@ dependencies {
 	implementation 'com.google.guava:guava:31.1-jre'
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation "com.fasterxml.jackson.core:jackson-databind:2.11.2"
+	implementation 'cn.hutool:hutool-all:5.7.9'
 	// mapstruct
 	implementation 'org.mapstruct:mapstruct:1.4.2.Final'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.4.2.Final'
