@@ -1,5 +1,9 @@
 package com.vyfe.hhc.poker.type;
 
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import lombok.AllArgsConstructor;
@@ -28,6 +32,10 @@ public enum CardNumber {
     QUEEN(12, "Q", 11),
     KING(13, "K", 12),
     ;
+    /**
+     * 按大小排序(2->A)
+     */
+    private static final List<CardNumber> orderList;
     
     @Getter
     private int number;
@@ -39,8 +47,27 @@ public enum CardNumber {
     @Getter
     private int order;
     
+    static {
+        orderList = Arrays.stream(values()).sorted(Comparator.comparing(CardNumber::getOrder))
+                .collect(Collectors.toList());
+    }
+    
     public static CardNumber getByDesc(String desc) {
         return Stream.of(values()).filter(f -> f.getDesc().equalsIgnoreCase(desc)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Not valid Code: " + desc));
+    }
+    
+    public static CardNumber getByNumber(Integer num) {
+        return Stream.of(values()).filter(f -> f.getNumber() == num).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Not valid Num: " + num));
+    }
+    
+    public static CardNumber getByOrder(Integer num) {
+        // 防止越界
+        return num < 1 ? orderList.get(orderList.size() + num - 1) : orderList.get(num - 1);
+    }
+    
+    public static List<CardNumber> getOrderList() {
+        return orderList;
     }
 }

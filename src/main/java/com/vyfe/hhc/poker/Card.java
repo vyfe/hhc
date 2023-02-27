@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 import com.vyfe.hhc.poker.type.CardNumber;
 import com.vyfe.hhc.poker.type.Decor;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
@@ -16,6 +17,7 @@ import lombok.ToString;
  */
 @ToString
 @NoArgsConstructor
+@EqualsAndHashCode
 public class Card implements Serializable {
     private CardNumber number;
     
