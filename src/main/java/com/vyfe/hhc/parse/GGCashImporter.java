@@ -4,7 +4,9 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
+import com.google.common.collect.ImmutableMap;
 import com.vyfe.hhc.parse.utils.FileParser;
 import com.vyfe.hhc.poker.constant.UserConstant;
 import com.vyfe.hhc.poker.type.GameType;
@@ -30,6 +32,10 @@ import org.springframework.util.CollectionUtils;
 @Service
 public class GGCashImporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(GGCashImporter.class);
+    public static final Map<String, GameType> GG_CASH_GAMETYPE_MAP = new ImmutableMap.Builder<String, GameType>()
+            .put("HD", GameType.CASH)
+            .put("RC", GameType.CASHRUSH)
+            .build();
     @Autowired
     private GGHandDecoder ggHandDecoder;
     @Autowired
@@ -41,16 +47,19 @@ public class GGCashImporter {
     
     public void startImport(File fileObj) throws HhcException {
         Pair<List<List<String>>, String> fileMsg = ggFileParser.parseHandsFile(fileObj);
-        // todo 对于普通桌和极速桌，还有个区分GameType逻辑
+        // 对于普通桌和极速桌，还有个区分GameType逻辑
+        String handIdPrefix = fileMsg.getLeft().get(0).get(0).split("#")[1].split(":")[0].substring(0, 2);
+        GameType type = GG_CASH_GAMETYPE_MAP.get(handIdPrefix);
+        
         // 为了去重，增加一个uid+文件类型+源session文件md5的去重逻辑
         if (!CollectionUtils.isEmpty(ggSessionMsgRepo.findByUidAndGameTypeAndFileMd5(UserConstant.GG_USER_ID_MAP.get("vyfe"),
-                GameType.CASHRUSH, fileMsg.getRight()))) {
+                type, fileMsg.getRight()))) {
             LOGGER.error("session repeat ,jump this");
             return;
         }
         GGSessionMsg session = new GGSessionMsg();
         session.setUid(UserConstant.GG_USER_ID_MAP.get("vyfe"));
-        session.setGameType(GameType.CASHRUSH);
+        session.setGameType(type);
         session.setHands(fileMsg.getLeft().size());
         session.setFileMd5(fileMsg.getRight());
         session = ggSessionMsgRepo.save(session);

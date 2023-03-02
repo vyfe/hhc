@@ -3,6 +3,7 @@ package com.vyfe.hhc.parse.utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,7 +82,13 @@ public class GGFileUtil implements FileParser {
             if (str.contains("Hero")) {
                 sessionMsg.setRank(Integer.valueOf(
                         str.split(StringUtils.SPACE)[0].trim().replaceAll("[a-z].*", StringUtils.EMPTY)));
-                sessionMsg.setCashOut(RegexUtil.cashStringToDecimal(str.split(",")[1].trim()));
+                sessionMsg.setCashOut(RegexUtil.cashStringToDecimal(str.split(",\s")[1]
+                        .split(StringUtils.SPACE)[0].trim()));
+            }
+            // 多次买入，setBuyInDollar * n
+            if (str.contains("re-entries")) {
+                sessionMsg.setBuyInDollar(sessionMsg.getBuyInDollar().multiply(BigDecimal.valueOf(
+                        Integer.parseInt(str.split(StringUtils.SPACE)[2]) + 1)));
             }
         }
         return sessionMsg;

@@ -1,8 +1,10 @@
 package com.vyfe.hhc.parse.utils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.stream.Stream;
 
 /**
  * RegexUtil类.
@@ -14,12 +16,15 @@ import java.time.format.DateTimeFormatter;
 public class RegexUtil {
     /**
      * 转换类似"[CT]?$3.04"到BigDecimal
-     * @param cashStr
+     * @param cashStr 可能带+号,如$1+$1
      * @return
      */
     public static BigDecimal cashStringToDecimal(String cashStr) {
-        return BigDecimal.valueOf(Double.parseDouble(
-                cashStr.split("\\$")[1]));
+        return cashStr.split("\\$").length != 2 ? Stream.of(cashStr.split("[$|+]"))
+                .filter(str -> !str.isBlank())
+                .map(str -> BigDecimal.valueOf(Double.parseDouble(str)))
+                .reduce(BigDecimal.ZERO, BigDecimal::add) :
+                BigDecimal.valueOf(Double.parseDouble(cashStr.split("\\$")[1]));
     }
     
     /**
@@ -39,4 +44,8 @@ public class RegexUtil {
         return strToSplit.split(reg)[strToSplit.split(reg).length - 1].trim();
     }
     
+    public static double parseDoubleToScale(double doubleVal) {
+        return BigDecimal.valueOf(doubleVal)
+                .setScale(2, RoundingMode.HALF_DOWN).doubleValue();
+    }
 }

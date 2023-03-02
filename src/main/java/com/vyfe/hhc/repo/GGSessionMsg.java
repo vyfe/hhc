@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,7 +26,9 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 @Entity
-@Table(name = "poker_session_gg")
+@Table(name = "poker_session_gg", indexes = {
+        @Index(name = "idx_uid_type", columnList = "uid, gameType"),
+})
 public class GGSessionMsg {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

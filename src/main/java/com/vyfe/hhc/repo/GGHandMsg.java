@@ -3,12 +3,9 @@ package com.vyfe.hhc.repo;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
 
-import com.vyfe.hhc.poker.ActionLine;
 import com.vyfe.hhc.poker.Card;
 import com.vyfe.hhc.poker.type.ActionType;
-import com.vyfe.hhc.poker.type.GameType;
 import com.vyfe.hhc.repo.converter.ActionLinesConverter;
 import com.vyfe.hhc.repo.converter.BoardsConverter;
 import com.vyfe.hhc.repo.converter.HeroHandsConverter;
@@ -20,6 +17,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -37,7 +35,10 @@ import org.apache.commons.lang3.tuple.Pair;
 @NoArgsConstructor
 @ToString
 @Entity
-@Table(name = "poker_hand_gg")
+@Table(name = "poker_hand_gg", indexes = {
+        @Index(name = "session", columnList = "sessionId"),
+        @Index(name = "hand", columnList = "handId")
+})
 public class GGHandMsg implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

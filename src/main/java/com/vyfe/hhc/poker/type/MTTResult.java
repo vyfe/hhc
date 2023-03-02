@@ -32,7 +32,7 @@ public enum MTTResult {
             return CHAMPION;
         } else if (rank < 10) {
             return FT;
-        } else if (!cash.equals(BigDecimal.ZERO)) {
+        } else if (cash.compareTo(BigDecimal.ZERO) != 0) {
             return CASH;
         } else if ((double) rank / (double)peopleAttend <= 0.25D) {
             return P25;

@@ -1,7 +1,6 @@
 package com.vyfe.hhc.system;
 
 import javax.sql.DataSource;
-
 import java.util.concurrent.TimeUnit;
 
 import com.zaxxer.hikari.HikariConfig;
@@ -16,12 +15,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
-import org.springframework.orm.jpa.vendor.Database;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -45,12 +42,14 @@ public class HhcAppCnxt {
     private Logger logger = LoggerFactory.getLogger(getClass());
     @Value("${spring.datasource.url}")
     private String url;
+    @Value("${spring.datasource.hikari.maximum-pool-size}")
+    private Integer poolSize;
     
     @Bean(name = "dataSource")
     public DataSource dataSource() {
         logger.info("create data source");
         HikariConfig config = new HikariConfig();
-        config.setMaximumPoolSize(1);
+        config.setMaximumPoolSize(poolSize);
         config.setMinimumIdle(1);
         config.setDriverClassName("org.sqlite.JDBC");
         config.setJdbcUrl(url);

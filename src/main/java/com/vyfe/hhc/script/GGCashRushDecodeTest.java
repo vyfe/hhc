@@ -26,8 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Description: 解析一个现金局手牌记录到Session和Hand对象
  */
 @Configuration
-public class GGCashDecodeTest extends ScriptTpl {
-    private static final Logger LOGGER = LoggerFactory.getLogger(GGCashDecodeTest.class);
+public class GGCashRushDecodeTest extends ScriptTpl {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GGCashRushDecodeTest.class);
     @Autowired
     private GGCashImporter cashImporter;
     
@@ -37,7 +37,7 @@ public class GGCashDecodeTest extends ScriptTpl {
     }
     
     public static void main(String[] args) {
-        execute(args, GGCashDecodeTest.class);
+        execute(args, GGCashRushDecodeTest.class);
     }
     
     @Override
@@ -55,6 +55,8 @@ public class GGCashDecodeTest extends ScriptTpl {
                 FileUtil.writeFromStream(zip.getInputStream(entry), fileToImport);
                 // zip包解压后，各file依次导入
                 cashImporter.startImport(fileToImport);
+                // 导入后删除
+                fileToImport.delete();
             }
         } catch (IOException e) {
             LOGGER.error("file download meeting io err:", e);

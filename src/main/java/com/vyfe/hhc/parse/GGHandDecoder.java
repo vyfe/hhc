@@ -44,7 +44,7 @@ public class GGHandDecoder {
     private static final int CHIP_DEF_POS = 0;
     private static final int CHIP_INSURANCE_POS = -1;
     
-    public GGHandMsg parseNoRebuyMTTHand(List<String> descString, Long sessionId) {
+    public GGHandMsg parseMTTHand(List<String> descString, Long sessionId) {
         return parseHandBase(descString, false, BigDecimal.ZERO, sessionId, RegexUtil::chipStringToDecimal);
     }
     

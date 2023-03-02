@@ -62,7 +62,7 @@ public class GGMttImporter {
         sessionMsg.setFileMd5(fileMsg.getRight());
         sessionMsg = ggSessionMsgRepo.save(sessionMsg);
         for (int i = 0; i < fileMsg.getLeft().size(); i++) {
-            GGHandMsg handTest = ggHandDecoder.parseNoRebuyMTTHand(fileMsg.getLeft().get(i), sessionMsg.getId());
+            GGHandMsg handTest = ggHandDecoder.parseMTTHand(fileMsg.getLeft().get(i), sessionMsg.getId());
             LOGGER.info("hands parse result: {}", handTest);
             ggHandMsgRepo.save(handTest);
         }
